@@ -64,9 +64,8 @@ def convert_module(network, module_to_substitute, conversion_function):
             if isinstance(network[index], module_to_substitute):
                 network[index] = conversion_function(network[index])
             else:
-                for child_network in network[index].children():
-                    convert_module(child_network, module_to_substitute,
-                                   conversion_function)
+                convert_module(network[index], module_to_substitute,
+                               conversion_function)
     else:
         for child_network in network.children():
             convert_module(child_network, module_to_substitute,
