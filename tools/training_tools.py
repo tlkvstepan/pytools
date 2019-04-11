@@ -59,6 +59,7 @@ class Trainer(object):
             _set_fastest_cuda_mode()
         self._experiment_folder = None
         self._current_epoch = 0
+        self._number_of_examples_per_epoch = float('inf')
         self._end_epoch = None
         self._learning_rate_scheduler = None
         self._network = None
@@ -210,8 +211,11 @@ class Trainer(object):
         """Returns training set losses."""
         self._network.train()
         self._current_losses = []
-        number_of_batches = len(self._training_set_loader)
+        number_of_batches = min(
+            len(self._training_set_loader), self._number_of_examples_per_epoch)
         for batch_index, batch in enumerate(self._training_set_loader):
+            if batch_index >= number_of_batches:
+                break
             if _is_logging_required(batch_index, number_of_batches):
                 self._logger.log('epoch {0:02d} ({1:02d}) : '
                                  'training: {2:05d} ({3:05d})'.format(
