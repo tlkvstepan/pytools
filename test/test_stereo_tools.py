@@ -38,3 +38,19 @@ def test_compute_right_disparity_score():
             ).all()
     assert (right_disparity_score[:, 1, :, 0:-2] ==
             left_disparity_score[:, 1, :, 2:]).all()
+
+
+def test_find_consistent_disparities():
+    # yapf: disable
+    left_disparity = th.Tensor([[1, 1, 2, 3, 1],
+                                [1, 1, 2, 3, 1]]).view(1, 2, 5)
+    right_disparity = th.Tensor([[1, 3, 4, 1, 0],
+                                 [1, 3, 4, 1, 0]]).view(1, 2, 5)
+    expected_consistent_disparities = th.ByteTensor([[0, 1, 0, 0, 1],
+                                                     [0, 1, 0, 0, 1]])
+    # yapf: enable
+    estimated_consistent_disparities = \
+        stereo_tools.find_consistent_disparities(left_disparity,
+            right_disparity, 0)
+    assert (expected_consistent_disparities == estimated_consistent_disparities
+            ).all()

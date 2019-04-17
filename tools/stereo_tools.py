@@ -5,6 +5,7 @@
 import torch as th
 from torch import nn
 
+
 class Warper(nn.Module):
     def __init__(self):
         super(Warper, self).__init__()
@@ -75,3 +76,15 @@ def compute_right_disparity_score(left_disparity_score, disparity_step=2):
         right_disparity_score[:, disparity_index, :, 0:-disparity] = \
             left_disparity_score[:, disparity_index, :, disparity:]
     return right_disparity_score
+
+
+def find_consistent_disparities(left_disparity, right_disparity,
+                                maximum_allowed_disparity_difference):
+    """Returns locations that satisfy one-to-one matching constraint."""
+    disparity_warper = Warper()
+    warped_right_disparity = disparity_warper(
+        right_disparity.unsqueeze(1), left_disparity)[0].squeeze(1)
+    print(warped_right_disparity)
+    consistent_disparities = (warped_right_disparity - left_disparity
+                              ).abs().le(maximum_allowed_disparity_difference)
+    return consistent_disparities
