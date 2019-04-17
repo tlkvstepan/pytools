@@ -68,7 +68,8 @@ def compute_right_disparity_score(left_disparity_score, disparity_step=2):
     Returns:
         tensor with indices [example_index, disparity_index, y, x].
     """
-    right_disparity_score = th.zeros(left_disparity_score.size())
+    right_disparity_score = th.zeros(
+        left_disparity_score.size()).type_as(left_disparity_score)
     maximum_disparity_index = left_disparity_score.size(1)
     right_disparity_score[:, 0, ...] = left_disparity_score[:, 0, ...]
     for disparity_index in range(1, maximum_disparity_index):
@@ -84,7 +85,6 @@ def find_consistent_disparities(left_disparity, right_disparity,
     disparity_warper = Warper()
     warped_right_disparity = disparity_warper(
         right_disparity.unsqueeze(1), left_disparity)[0].squeeze(1)
-    print(warped_right_disparity)
     consistent_disparities = (warped_right_disparity - left_disparity
                               ).abs().le(maximum_allowed_disparity_difference)
     return consistent_disparities
