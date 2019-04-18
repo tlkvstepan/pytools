@@ -79,12 +79,56 @@ def compute_right_disparity_score(left_disparity_score, disparity_step=2):
     return right_disparity_score
 
 
-def find_consistent_disparities(left_disparity, right_disparity,
-                                maximum_allowed_disparity_difference):
-    """Returns locations that satisfy one-to-one matching constraint."""
+def find_locations_with_consistent_disparities(
+        left_disparity,
+        right_disparity,
+        maximum_allowed_disparity_difference=0.5,
+        averaging_window_size=5):
+    """Returns mask of consistent disparities.
+
+    To check consistency the right view disparity is warped to the
+    left view using the left view disparity and then compared to
+    the left view disparities. Location where the difference between
+    the disparities is < maximumu_allowed_disparity_difference.
+    """
     disparity_warper = Warper()
     warped_right_disparity = disparity_warper(
         right_disparity.unsqueeze(1), left_disparity)[0].squeeze(1)
-    consistent_disparities = (warped_right_disparity - left_disparity
-                              ).abs().le(maximum_allowed_disparity_difference)
-    return consistent_disparities
+    difference = (warped_right_disparity - left_disparity
+                  ).abs()
+    window_difference = nn.functional.avg_pool2d(
+        difference, kernel_size=averaging_window_size, stride=1,
+        padding=averaging_window_size // 2)
+    return window_difference <= maximum_allowed_disparity_difference
+
+
+def find_cycle_consistent_locations(left_disparity,
+                                    right_disparity,
+                                    left_image=None,
+                                    maximum_allowed_intensity_difference=50,
+                                    averaging_window_size=5):
+    """Returns mask of cycle consistent locations.
+
+    To check cycle consistency random noise image or actual left image is
+    warped to the right viewpoint using right disparity and to then back
+    to the left viewpoint using the left disparity. The resulting image
+    is compared to the original random noise image or the actual left
+    image, and locations with intensity error <
+    maximum_allowed_intensity_difference are reported as consistent.
+
+    Note, that if we use actual left image this consistency check is equal
+    to the original cyclic loss.
+    """
+    if left_image is None:
+        height, width = left_disparity.size()[-2:]
+        texture = th.rand(1, 1, height, width).type_as(left_disparity) * 255.0
+    else:
+        texture = left_image.mean(dim=1, keepdim=True)
+    stereo_warper = Warper()
+    warped_texture = stereo_warper(texture, -right_disparity)[0]
+    warped2x_texture = stereo_warper(warped_texture, left_disparity)[0]
+    difference = (warped2x_texture - texture).abs()
+    window_difference = nn.functional.avg_pool2d(
+        difference, kernel_size=averaging_window_size, stride=1,
+        padding=averaging_window_size // 2)
+    return window_difference <= maximum_allowed_intensity_difference
