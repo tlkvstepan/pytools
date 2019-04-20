@@ -227,7 +227,6 @@ class Trainer(object):
             self._run_network(batch)
             self._compute_gradients_wrt_loss(batch)
             self._optimizer.step()
-            self._current_losses.append(batch['loss'])
             del batch
             th.cuda.empty_cache()
         return self._average_losses(self._current_losses)

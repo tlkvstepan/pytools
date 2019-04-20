@@ -8,7 +8,6 @@ import tempfile
 
 import torch as th
 
-
 from tools import visualization_tools
 
 
@@ -62,5 +61,15 @@ def test_plot_loss_and_error():
     visualization_tools.plot_losses_and_errors(
         filename=filename,
         losses=[100.0, 60.0, 40.0, 10.0],
+        errors=[3, 2, 1.9, 1.4])
+    assert os.path.isfile(filename)
+
+
+def test_plot_discriminator_and_generator_losses_and_errors():
+    filename = tempfile.mkstemp(suffix='.png')[1]
+    visualization_tools.plot_discriminator_and_generator_losses_and_errors(
+        filename=filename,
+        discriminator_loss=[120.0, 30.0, 20.0, 11.0],
+        generator_loss=[100.0, 60.0, 40.0, 10.0],
         errors=[3, 2, 1.9, 1.4])
     assert os.path.isfile(filename)

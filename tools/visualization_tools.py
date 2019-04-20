@@ -153,36 +153,94 @@ class Logger(object):
         handler.close()
 
 
-def plot_losses_and_errors(filename,
-                           losses,
-                           errors,
-                           righ_y_axis_label='Validation error, [%]'):
-    """Plots the loss and the error.
+def _plot_on_axis(axis, data, legend_template, y_axis_label,
+                  color_of_axis_and_plot, linestyle, marker):
+    min_value, min_index = np.min(data), np.argmin(data) + 1
+    epochs = range(1, len(data) + 1)
+    legend = legend_template.format(min_value, min_index)
+    plot_handel = axis.plot(
+        epochs,
+        data,
+        linestyle=linestyle,
+        marker=marker,
+        color=color_of_axis_and_plot,
+        label=legend)[0]
+    axis.set_ylabel(y_axis_label, color=color_of_axis_and_plot)
+    axis.set_xlabel('Epoch')
+    return plot_handel
 
-    The plot has two y-axis: the left is reserved for the loss
-    and the right is reserved for the error. The axis have
-    different scale. The axis and the curve of the loss are shown
-    in blue and the axis and the curve for the error are shown
-    in red.
+
+def plot_with_two_y_axis(
+        filename,
+        left_plot_data,
+        right_plot_data,
+        left_plot_legend_template='Training loss (smallest {0:.3f}, epoch {1:})',
+        right_plot_legend_template='Validation error (smallest {0:.3f}, epoch {1:})',
+        right_y_axis_label='Validation error, [%]',
+        left_y_axis_label='Training loss'):
+    """Plots two graphs on same figure.
+
+    The figure has two y-axis the left and the right which correspond
+    to two plots. The axis have different scales. The left axis and
+    the corresponding plot are shown in blue and the right axis and
+    the corresponding plot are shown in red.
 
     Args:
-        filename: image file where plot is saved;
-        training_loss, validation_error: lists with loss and error values
-                                         respectively. Every element of the
-                                         list corresponds to an epoch.
+        filename: image file where plot is saved.
+        xxxx_plot_data: list with datapoints. Every element of the
+                        list corresponds to an epoch.
+        xxxx_plot_legend_template: template for the plot legend.
+        xxxx_y_axis_label: label of the axis.
     """
-    epochs = range(1, len(losses) + 1)
-    figure, loss_axis = plt.subplots()
-    smallest_loss = min(losses)
-    loss_label = 'Training loss (smallest {0:.3f})'.format(smallest_loss)
-    loss_plot = loss_axis.plot(epochs, losses, 'bs-', label=loss_label)[0]
-    loss_axis.set_ylabel('Training loss', color='blue')
-    loss_axis.set_xlabel('Epoch')
-    error_axis = loss_axis.twinx()
-    smallest_error = min(errors)
-    error_label = 'Validation error (smallest {0:.3f})'.format(smallest_error)
-    error_plot = error_axis.plot(epochs, errors, 'ro--', label=error_label)[0]
-    error_axis.set_ylabel(righ_y_axis_label, color='red')
-    error_axis.legend(handles=[loss_plot, error_plot])
-    figure.savefig(filename, bbox_inches='tight')
-    plt.close()
+    figure, left_axis = plt.subplots()
+    left_plot_handle = _plot_on_axis(
+        left_axis,
+        left_plot_data,
+        legend_template=left_plot_legend_template,
+        y_axis_label=left_y_axis_label,
+        color_of_axis_and_plot='blue',
+        linestyle='dashed',
+        marker='o')
+    right_axis = left_axis.twinx()
+    right_plot_handle = _plot_on_axis(
+        right_axis,
+        right_plot_data,
+        legend_template=right_plot_legend_template,
+        y_axis_label=right_y_axis_label,
+        color_of_axis_and_plot='red',
+        linestyle='solid',
+        marker='o')
+    right_axis.legend(handles=[left_plot_handle, right_plot_handle])
+    if filename is not None:
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close()
+    return figure, left_axis, right_axis
+
+
+def plot_discriminator_and_generator_losses_and_errors(
+        filename, discriminator_loss, generator_loss, errors):
+    _, left_axis, right_axis = plot_with_two_y_axis(
+        None,
+        discriminator_loss,
+        errors,
+        left_plot_legend_template=
+        'Discriminator loss (smallest {0:.3f}, epoch {1:})')
+    _plot_on_axis(
+        left_axis,
+        generator_loss,
+        legend_template='Generator loss (smallest {0:.3f}, epoch {1:})',
+        y_axis_label='Training Loss',
+        color_of_axis_and_plot='green',
+        linestyle='dashed',
+        marker='o')
+    left_handles, left_labels = left_axis.get_legend_handles_labels()
+    right_handles, right_labels = right_axis.get_legend_handles_labels()
+    right_axis.get_legend().remove()
+    left_axis.legend(right_handles + left_handles, right_labels + left_labels)
+    if filename is not None:
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close()
+
+
+def plot_losses_and_errors(filename, losses, errors):
+    plot_with_two_y_axis(filename, losses, errors)
