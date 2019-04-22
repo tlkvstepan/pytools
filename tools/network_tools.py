@@ -1,6 +1,11 @@
 from torch import nn
 
 
+def set_requires_gradient(network, is_requires_gradient):
+    for parameter in network.parameters():
+        parameter.requires_grad = is_requires_gradient
+
+
 class AppendOperationToNetwork(nn.Module):
     """Appends operation to the end / beggining of network."""
 

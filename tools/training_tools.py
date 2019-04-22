@@ -29,6 +29,11 @@ def _is_logging_required(example_index, number_of_examples):
     return (example_index + 1) % max(1, number_of_examples // 10) == 0
 
 
+def set_requires_gradient(network, is_requires_gradient):
+    for parameter in network.parameters():
+        parameter.requires_grad = is_requires_gradient
+
+
 def _set_fastest_cuda_mode():
     th.backends.cudnn.fastest = True
     th.backends.cudnn.benchmark = True

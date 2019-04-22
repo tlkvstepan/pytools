@@ -4,6 +4,21 @@ import torch as th
 from tools import network_tools
 
 
+def _is_any_parameter_requires_gradient(network):
+    for parameter in network.parameters():
+        if parameter.requires_grad:
+            return True
+    return False
+
+
+def test_set_requires_gradients():
+    network = nn.Sequential(nn.Linear(1, 10), nn.ReLU(), nn.Linear(10, 1))
+    network_tools.set_requires_gradient(network, is_requires_gradient=False)
+    assert ~_is_any_parameter_requires_gradient(network)
+    network_tools.set_requires_gradient(network, is_requires_gradient=True)
+    assert _is_any_parameter_requires_gradient(network)
+
+
 def test_convert_module():
     # Substitute ReLU by LeakyReLU
     network = nn.Sequential(
@@ -17,8 +32,8 @@ def test_are_networks_have_same_modules():
     assert network_tools.are_networks_have_same_modules(
         nn.Conv2d(1, 2, (3, 3)), nn.Conv2d(1, 2, (3, 3)))
     assert not network_tools.are_networks_have_same_modules(
-        nn.Conv2d(1, 2, (3, 3)),
-        nn.Sequential(nn.Conv2d(1, 2, (3, 3)), nn.ReLU()))
+        nn.Conv2d(1, 2,
+                  (3, 3)), nn.Sequential(nn.Conv2d(1, 2, (3, 3)), nn.ReLU()))
 
 
 def test_append_to_network():
