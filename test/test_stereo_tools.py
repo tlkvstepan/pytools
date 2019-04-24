@@ -7,6 +7,18 @@ import torch as th
 from tools import stereo_tools
 
 
+def test_compute_occlusion_map():
+    # yapf: disable
+    opposite_view_disparity = th.Tensor([[1, 2, 0, 1, 1],
+                                         [3, 2, 1, 1, 3]])
+    expected_occlusion_map = th.Tensor([[1, 1, 0, 0, 1],
+                                        [1, 0, 0, 1, 1]]).byte()
+    # yapf: enable
+    estimated_occlusion_map = stereo_tools.compute_occlusion_map(
+        opposite_view_disparity, dilation_window_size=1)
+    assert (estimated_occlusion_map == expected_occlusion_map).all()
+
+
 def test_warper_output():
     source = th.rand(2, 3, 14, 17)
     x_shift = th.rand(2, 14, 17)

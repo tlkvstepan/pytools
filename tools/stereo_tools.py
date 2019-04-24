@@ -2,23 +2,24 @@
 # ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE, Switzerland,
 # Space Center (eSpace), 2018
 # See the LICENSE.TXT file for more details.
-import torch as th
+from scipy.ndimage import morphology
 from torch import nn
+import numpy as np
+import torch as th
+
+
+def create_meshgrid(width, height, is_cuda):
+    x, y = th.meshgrid([th.arange(0, width), th.arange(0, height)])
+    x, y = (x.transpose(0, 1).float(), y.transpose(0, 1).float())
+    if is_cuda:
+        x = x.cuda()
+        y = y.cuda()
+    return x, y
 
 
 class Warper(nn.Module):
     def __init__(self):
         super(Warper, self).__init__()
-
-    def _create_meshgrid(self, width, height, is_cuda):
-        x_target, y_target = th.meshgrid(
-            [th.arange(0, width), th.arange(0, height)])
-        x_target, y_target = (x_target.transpose(0, 1).float(),
-                              y_target.transpose(0, 1).float())
-        if is_cuda:
-            x_target = x_target.cuda()
-            y_target = y_target.cuda()
-        return x_target, y_target
 
     def forward(self, source, x_shift):
         """Returns warped source image.
@@ -38,8 +39,7 @@ class Warper(nn.Module):
             x_shift: is tensor with indices [example_index, y, x].
         """
         width, height = source.size(-1), source.size(-2)
-        x_target, y_target = self._create_meshgrid(width, height,
-                                                   source.is_cuda)
+        x_target, y_target = create_meshgrid(width, height, source.is_cuda)
         x_source = x_target - x_shift
         y_source = y_target.unsqueeze(0)
         # Normalize coordinates to [-1,1]
@@ -50,6 +50,38 @@ class Warper(nn.Module):
         target = nn.functional.grid_sample(source, grid_source)
         target.masked_fill_(invalid.unsqueeze(1).expand_as(target), 0)
         return target, invalid.float()
+
+
+def compute_occlusion_map(opposite_view_disparity, dilation_window_size=3):
+    """Returns occlusion map.
+    Args:
+        opposite_view_disparity: a tensor with indices [y, x] with disparities.
+                                 Positive disparity
+                                 correspond to shift to the left. If one wants
+                                 to detect occlusion in the left view, one
+                                 should provide right view disparity.
+        dilation_window_size: size of the dilation window applied to the
+                              occlusion map.
+    """
+    with th.no_grad():
+        height, width = opposite_view_disparity.size()
+        (x, y) = create_meshgrid(width, height,
+                                 opposite_view_disparity.is_cuda)
+        x = (x - opposite_view_disparity).round().long()
+        y = y.long()
+        valid_locations = (x >= 0) & (x < width)
+        x = x[valid_locations]
+        y = y[valid_locations]
+        occlusion_map = np.ones((height, width))
+        occlusion_map[y.cpu().numpy(), x.cpu().numpy()] = 0
+        occlusion_map = th.from_numpy(
+            morphology.binary_dilation(
+                occlusion_map,
+                np.ones((dilation_window_size,
+                         dilation_window_size))).astype(np.uint8))
+        if opposite_view_disparity.is_cuda:
+            occlusion_map = occlusion_map.cuda()
+    return occlusion_map
 
 
 def compute_right_disparity_score(left_disparity_score, disparity_step=2):
@@ -94,10 +126,11 @@ def find_locations_with_consistent_disparities(
     disparity_warper = Warper()
     warped_right_disparity = disparity_warper(
         right_disparity.unsqueeze(1), left_disparity)[0].squeeze(1)
-    difference = (warped_right_disparity - left_disparity
-                  ).abs()
+    difference = (warped_right_disparity - left_disparity).abs()
     window_difference = nn.functional.avg_pool2d(
-        difference, kernel_size=averaging_window_size, stride=1,
+        difference,
+        kernel_size=averaging_window_size,
+        stride=1,
         padding=averaging_window_size // 2)
     return window_difference <= maximum_allowed_disparity_difference
 
@@ -129,6 +162,8 @@ def find_cycle_consistent_locations(left_disparity,
     warped2x_texture = stereo_warper(warped_texture, left_disparity)[0]
     difference = (warped2x_texture - texture).abs()
     window_difference = nn.functional.avg_pool2d(
-        difference, kernel_size=averaging_window_size, stride=1,
+        difference,
+        kernel_size=averaging_window_size,
+        stride=1,
         padding=averaging_window_size // 2)
     return window_difference <= maximum_allowed_intensity_difference
