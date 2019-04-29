@@ -36,11 +36,14 @@ class Warper(nn.Module):
         Args:
             source: is tensor with indices [example_index, channel_index,
                     y, x].
-            x_shift: is tensor with indices [example_index, y, x].
+            x_shift: is tensor with indices [example_index, 1, y, x].
         """
+        if x_shift.size(1) != 1:
+            raise ValueError('"x_shift" should should have second dimension'
+                             'equal to one.')
         width, height = source.size(-1), source.size(-2)
         x_target, y_target = create_meshgrid(width, height, source.is_cuda)
-        x_source = x_target - x_shift
+        x_source = x_target - x_shift.squeeze(1)
         y_source = y_target.unsqueeze(0)
         # Normalize coordinates to [-1,1]
         invalid = (x_source.detach() < 0) | (x_source.detach() >= width)
@@ -112,10 +115,8 @@ def compute_right_disparity_score(left_disparity_score, disparity_step=2):
 
 
 def find_locations_with_consistent_disparities(
-        left_disparity,
-        right_disparity,
-        maximum_allowed_disparity_difference=0.5,
-        averaging_window_size=5):
+        left_disparity, right_disparity,
+        maximum_allowed_disparity_difference=0.5):
     """Returns mask of consistent disparities.
 
     To check consistency the right view disparity is warped to the
@@ -124,22 +125,16 @@ def find_locations_with_consistent_disparities(
     the disparities is < maximumu_allowed_disparity_difference.
     """
     disparity_warper = Warper()
-    warped_right_disparity = disparity_warper(
-        right_disparity.unsqueeze(1), left_disparity)[0].squeeze(1)
+    warped_right_disparity = disparity_warper(right_disparity,
+                                              left_disparity)[0]
     difference = (warped_right_disparity - left_disparity).abs()
-    window_difference = nn.functional.avg_pool2d(
-        difference,
-        kernel_size=averaging_window_size,
-        stride=1,
-        padding=averaging_window_size // 2)
-    return window_difference <= maximum_allowed_disparity_difference
+    return difference <= maximum_allowed_disparity_difference
 
 
 def find_cycle_consistent_locations(left_disparity,
                                     right_disparity,
                                     left_image=None,
-                                    maximum_allowed_intensity_difference=50,
-                                    averaging_window_size=5):
+                                    maximum_allowed_intensity_difference=50):
     """Returns mask of cycle consistent locations.
 
     To check cycle consistency random noise image or actual left image is
@@ -161,9 +156,4 @@ def find_cycle_consistent_locations(left_disparity,
     warped_texture = stereo_warper(texture, -right_disparity)[0]
     warped2x_texture = stereo_warper(warped_texture, left_disparity)[0]
     difference = (warped2x_texture - texture).abs()
-    window_difference = nn.functional.avg_pool2d(
-        difference,
-        kernel_size=averaging_window_size,
-        stride=1,
-        padding=averaging_window_size // 2)
-    return window_difference <= maximum_allowed_intensity_difference
+    return difference <= maximum_allowed_intensity_difference

@@ -21,7 +21,7 @@ def test_compute_occlusion_map():
 
 def test_warper_output():
     source = th.rand(2, 3, 14, 17)
-    x_shift = th.rand(2, 14, 17)
+    x_shift = th.rand(2, 1, 14, 17)
     disparity_warper = stereo_tools.Warper()
     target, invalid = disparity_warper(source, x_shift)
     assert target.size() == source.size()
@@ -30,9 +30,10 @@ def test_warper_output():
 def test_warper_logic():
     source = th.Tensor([[1, 2, 3, 4], [5, 6, 7, 8]]).view(1, 1, 2, 4)
     source.requires_grad = True
-    x_shift = th.Tensor([[0, 0, 2, 1], [1, 0, float('inf'), 0]]).view(1, 2, 4)
+    x_shift = th.Tensor([[0, 0, 2, 1], [1, 0, float('inf'), 0]]).view(
+        1, 1, 2, 4)
     x_shift.requires_grad = True
-    expected_target = th.Tensor([[1, 2, 1, 3], [0, 6, 0, 8]])
+    expected_target = th.Tensor([[1, 2, 1, 3], [0, 6, 0, 8]]).view(1, 1, 2, 4)
     disparity_warper = stereo_tools.Warper()
     target, invalid = disparity_warper(source, x_shift)
     assert target.isclose(expected_target).all()
@@ -53,26 +54,24 @@ def test_compute_right_disparity_score():
 
 
 def test_find_locations_with_consistent_disparities():
-    left_disparity = th.Tensor([1, 1, 2, 3, 1]).repeat(1, 2, 1)
-    right_disparity = th.Tensor([1, 3, 4, 1, 0]).repeat(1, 2, 1)
+    left_disparity = th.Tensor([1, 1, 2, 3, 1]).repeat(1, 1, 2, 1)
+    right_disparity = th.Tensor([1, 3, 4, 1, 0]).repeat(1, 1, 2, 1)
     expected_consistent_disparities = th.ByteTensor([0, 1, 0, 0, 1]).repeat(
         2, 1)
     estimated_consistent_disparities = \
         stereo_tools.find_locations_with_consistent_disparities(left_disparity,
-            right_disparity, averaging_window_size=1,
-            maximum_allowed_disparity_difference=0)
+            right_disparity, maximum_allowed_disparity_difference=0)
     assert (expected_consistent_disparities == estimated_consistent_disparities
             ).all()
 
 
 def test_find_cycle_consistent_locations():
-    left_disparity = th.Tensor([0, 1, 0, 1]).repeat(1, 2, 1)
-    right_disparity = th.Tensor([1, 1, 1, 0]).repeat(1, 2, 1)
+    left_disparity = th.Tensor([0, 1, 0, 1]).repeat(1, 1, 2, 1)
+    right_disparity = th.Tensor([1, 1, 1, 0]).repeat(1, 1, 2, 1)
     expected_cyclic_consistent_locations = th.Tensor([0, 1, 0, 1]).repeat(
-        1, 2, 1).byte()
+        1, 1, 2, 1).byte()
     estimated_cyclic_consistent_locations = \
         stereo_tools.find_cycle_consistent_locations(left_disparity,
-            right_disparity, averaging_window_size=1,
-            maximum_allowed_intensity_difference=0)
+            right_disparity, maximum_allowed_intensity_difference=0)
     assert (estimated_cyclic_consistent_locations ==
             expected_cyclic_consistent_locations).all()
