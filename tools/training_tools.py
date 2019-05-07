@@ -9,15 +9,12 @@ import time
 import torch as th
 
 from tools import visualization_tools
+from tools import network_tools
 
 
 def get_learning_rate(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
-
-
-def _is_on_cuda(network):
-    return next(network.parameters()).is_cuda
 
 
 def _is_logging_required(example_index, number_of_examples):
@@ -27,11 +24,6 @@ def _is_logging_required(example_index, number_of_examples):
     is processed.
     """
     return (example_index + 1) % max(1, number_of_examples // 10) == 0
-
-
-def set_requires_gradient(network, is_requires_gradient):
-    for parameter in network.parameters():
-        parameter.requires_grad = is_requires_gradient
 
 
 def _set_fastest_cuda_mode():
@@ -67,7 +59,7 @@ class Trainer(object):
         self._number_of_examples_per_epoch = float('inf')
         self._end_epoch = None
         self._learning_rate_scheduler = None
-        self._network = None
+        self._networks = None
         self._training_set_loader = None
         self._test_set_loader = None
         self._optimizer = None
@@ -121,8 +113,8 @@ class Trainer(object):
             self._training_losses,
             'test_errors':
             self._test_errors,
-            'network':
-            self._network.state_dict(),
+            'networks':
+            self._networks.state_dict(),
             'optimizer':
             self._optimizer.state_dict(),
             'learning_rate_scheduler':
@@ -212,9 +204,19 @@ class Trainer(object):
         raise NotImplementedError('"_report_training_progress" method should '
                                   'be implemented in a child class.')
 
+    def _eval(self):
+        """Switch to evaluation mode."""
+        raise NotImplementedError('"_eval" method should '
+                                  'be implemented in a child class.')
+
+    def _train(self):
+        """Switch to training mode."""
+        raise NotImplementedError('"_train" method should '
+                                  'be implemented in a child class.')
+
     def _train_for_epoch(self):
         """Returns training set losses."""
-        self._network.train()
+        self._train()
         self._current_losses = []
         number_of_batches = min(
             len(self._training_set_loader), self._number_of_examples_per_epoch)
@@ -227,7 +229,7 @@ class Trainer(object):
                                      self._current_epoch + 1, self._end_epoch,
                                      batch_index + 1, number_of_batches))
             self._optimizer.zero_grad()
-            if _is_on_cuda(self._network):
+            if network_tools.is_network_on_cuda(self._networks):
                 batch = _move_tensors_to_cuda(batch)
             self._run_network(batch)
             self._compute_gradients_wrt_loss(batch)
@@ -238,7 +240,7 @@ class Trainer(object):
 
     def _test(self):
         """Returns test set errors."""
-        self._network.eval()
+        self._eval()
         self._current_errors = []
         self._current_processing_times = []
         number_of_examples = len(self._test_set_loader)
@@ -248,7 +250,7 @@ class Trainer(object):
                                  'validation: {2:05d} ({3:05d})'.format(
                                      self._current_epoch + 1, self._end_epoch,
                                      example_index + 1, number_of_examples))
-            if _is_on_cuda(self._network):
+            if network_tools.is_network_on_cuda(self._networks):
                 example = _move_tensors_to_cuda(example)
             with th.no_grad():
                 self._run_network_and_measure_time(example)
