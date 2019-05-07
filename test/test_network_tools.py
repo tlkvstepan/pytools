@@ -11,11 +11,13 @@ def _is_any_parameter_requires_gradient(network):
     return False
 
 
-def test_set_requires_gradients():
+def test_set_requires_gradient_for_network():
     network = nn.Sequential(nn.Linear(1, 10), nn.ReLU(), nn.Linear(10, 1))
-    network_tools.set_requires_gradient(network, is_requires_gradient=False)
+    network_tools.set_requires_gradient_for_network(
+        network, is_requires_gradient=False)
     assert ~_is_any_parameter_requires_gradient(network)
-    network_tools.set_requires_gradient(network, is_requires_gradient=True)
+    network_tools.set_requires_gradient_for_network(
+        network, is_requires_gradient=True)
     assert _is_any_parameter_requires_gradient(network)
 
 

@@ -1,11 +1,6 @@
 from torch import nn
 
 
-def set_requires_gradient(network, is_requires_gradient):
-    for parameter in network.parameters():
-        parameter.requires_grad = is_requires_gradient
-
-
 def is_network_on_cuda(network):
     return next(network.parameters()).is_cuda
 
