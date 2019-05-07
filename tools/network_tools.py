@@ -6,6 +6,15 @@ def set_requires_gradient(network, is_requires_gradient):
         parameter.requires_grad = is_requires_gradient
 
 
+def is_network_on_cuda(network):
+    return next(network.parameters()).is_cuda
+
+
+def set_requires_gradient_for_network(network, is_requires_gradient):
+    for parameter in network.parameters():
+        parameter.requires_grad = is_requires_gradient
+
+
 class AppendOperationToNetwork(nn.Module):
     """Appends operation to the end / beggining of network."""
 
