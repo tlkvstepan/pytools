@@ -2,9 +2,7 @@
 # ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE, Switzerland,
 # Space Center (eSpace), 2018
 # See the LICENSE.TXT file for more details.
-from scipy.ndimage import morphology
 from torch import nn
-import numpy as np
 import torch as th
 
 
