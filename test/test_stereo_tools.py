@@ -7,15 +7,15 @@ import torch as th
 from tools import stereo_tools
 
 
-def test_compute_occlusion_map():
-    # yapf: disable
-    opposite_view_disparity = th.Tensor([[1, 2, 0, 1, 1],
-                                         [3, 2, 1, 1, 3]])
+def test_compute_occlusion_mask():
+    opposite_view_disparity = th.Tensor([[1, 2, 0, 1,
+                                          1], [3, 2, 1, 1, 3]]).view(
+                                              1, 1, 2, 5).repeat(2, 1, 1, 1)
     expected_occlusion_map = th.Tensor([[1, 1, 0, 0, 1],
-                                        [1, 0, 0, 1, 1]]).byte()
-    # yapf: enable
-    estimated_occlusion_map = stereo_tools.compute_occlusion_map(
-        opposite_view_disparity, dilation_window_size=1)
+                                        [1, 0, 0, 1, 1]]).byte().view(
+                                            1, 1, 2, 5).repeat(2, 1, 1, 1)
+    estimated_occlusion_map = stereo_tools.compute_occlusion_mask(
+        opposite_view_disparity)
     assert (estimated_occlusion_map == expected_occlusion_map).all()
 
 
@@ -28,12 +28,15 @@ def test_warper_output():
 
 
 def test_warper_logic():
-    source = th.Tensor([[1, 2, 3, 4], [5, 6, 7, 8]]).view(1, 1, 2, 4)
+    source = th.Tensor([[1, 2, 3, 4], [5, 6, 7, 8]]).view(1, 1, 2, 4).repeat(
+        2, 1, 1, 1)
     source.requires_grad = True
     x_shift = th.Tensor([[0, 0, 2, 1], [1, 0, float('inf'), 0]]).view(
-        1, 1, 2, 4)
+        1, 1, 2, 4).repeat(2, 1, 1, 1)
     x_shift.requires_grad = True
-    expected_target = th.Tensor([[1, 2, 1, 3], [0, 6, 0, 8]]).view(1, 1, 2, 4)
+    expected_target = th.Tensor([[1, 2, 1, 3], [0, 6, 0,
+                                                8]]).view(1, 1, 2, 4).repeat(
+                                                    2, 1, 1, 1)
     disparity_warper = stereo_tools.Warper()
     target, invalid = disparity_warper(source, x_shift)
     assert target.isclose(expected_target).all()

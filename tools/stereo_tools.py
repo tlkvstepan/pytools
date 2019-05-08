@@ -22,21 +22,24 @@ class Warper(nn.Module):
         super(Warper, self).__init__()
 
     def forward(self, source, x_shift):
-        """Returns warped source image.
+        """Returns warped source image and occlusion_mask.
 
         In value in (x, y) location in the target image in take from
         (x - x_shift, y) location in the source image.
 
-        If the location in the source image is outside of borders,
-        the location in the target image is filled with zeros.
-
-        If the shift is 'inf', the location in the target image is
-        filled with zeros.
+        If the location in the source image is outside of its borders,
+        the location in the target image is filled with zeros and the
+        location is added to the "occlusion_mask".
 
         Args:
-            source: is tensor with indices [example_index, channel_index,
-                    y, x].
+            source: is a tensor with indices
+                    [example_index, channel_index, y, x].
             x_shift: is tensor with indices [example_index, 1, y, x].
+
+        Returns:
+            target: is a tensor with indices
+                    [example_index, channel_index, y, x].
+            occlusion_mask: is a tensor with indices [example_index, y, x].
         """
         if x_shift.size(1) != 1:
             raise ValueError('"x_shift" should should have second dimension'
@@ -46,38 +49,47 @@ class Warper(nn.Module):
         x_source = x_target - x_shift.squeeze(1)
         y_source = y_target.unsqueeze(0)
         # Normalize coordinates to [-1,1]
-        invalid = (x_source.detach() < 0) | (x_source.detach() >= width)
+        occlusion_mask = (x_source.detach() < 0) | (x_source.detach() >= width)
         x_source = (2.0 / float(width - 1)) * x_source - 1
         y_source = (2.0 / float(height - 1)) * y_source - 1
         grid_source = th.stack([x_source, y_source.expand_as(x_source)], -1)
         target = nn.functional.grid_sample(source, grid_source)
-        target.masked_fill_(invalid.unsqueeze(1).expand_as(target), 0)
-        return target, invalid.float()
+        target.masked_fill_(occlusion_mask.unsqueeze(1).expand_as(target), 0)
+        return target, occlusion_mask
 
 
-def compute_occlusion_map(opposite_view_disparity):
-    """Returns occlusion map.
+def compute_occlusion_mask(opposite_view_disparity):
+    """Returns occlusion mask.
+
     Args:
-        opposite_view_disparity: a tensor with indices [number_of_examples, 1,
+        opposite_view_disparity: a tensor with indices [example_index, 1,
                                  y, x] with disparities. Positive disparity
-                                 correspond to shift to the left. If one wants
-                                 to detect occlusion in the left view, one
+                                 correspond to shift to the left. To detect
+                                 occlusions in the left view, one
                                  should provide right view disparity.
+
+    Returns:
+        occusion mask: is a tensor with indices [example_index, 1, y, x].
     """
     with th.no_grad():
-        height, width = opposite_view_disparity.size()
-        (x, y) = create_meshgrid(width, height,
-                                 opposite_view_disparity.is_cuda)
-        x = (x - opposite_view_disparity).round().long()
-        y = y.long()
-        valid_locations = (x >= 0) & (x < width)
-        x = x[valid_locations]
-        y = y[valid_locations]
-        occlusion_map = th.ones((height, width))
-        occlusion_map[y, x] = 0
-        if opposite_view_disparity.is_cuda:
-            occlusion_map = occlusion_map.cuda()
-    return occlusion_map
+        (number_of_examples, _, height, width) = opposite_view_disparity.size()
+        occlusion_masks = []
+        for example_index in range(number_of_examples):
+            occlusion_mask = th.ones(height, width).byte()
+            if opposite_view_disparity.is_cuda:
+                occlusion_mask = occlusion_mask.cuda()
+            (x, y) = create_meshgrid(width, height,
+                                     opposite_view_disparity.is_cuda)
+            x = (x - opposite_view_disparity[example_index].squeeze(0)
+                 ).round().long()
+            y = y.long()
+            valid_locations = (x >= 0) & (x < width)
+            x = x[valid_locations]
+            y = y[valid_locations]
+            occlusion_mask[y, x] = 0
+            occlusion_masks.append(occlusion_mask)
+        occlusion_masks = th.stack(occlusion_masks, dim=0)
+    return occlusion_masks.unsqueeze(1)
 
 
 def compute_right_disparity_score(left_disparity_score, disparity_step=2):
