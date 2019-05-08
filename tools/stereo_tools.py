@@ -55,16 +55,14 @@ class Warper(nn.Module):
         return target, invalid.float()
 
 
-def compute_occlusion_map(opposite_view_disparity, dilation_window_size=3):
+def compute_occlusion_map(opposite_view_disparity):
     """Returns occlusion map.
     Args:
-        opposite_view_disparity: a tensor with indices [y, x] with disparities.
-                                 Positive disparity
+        opposite_view_disparity: a tensor with indices [number_of_examples, 1,
+                                 y, x] with disparities. Positive disparity
                                  correspond to shift to the left. If one wants
                                  to detect occlusion in the left view, one
                                  should provide right view disparity.
-        dilation_window_size: size of the dilation window applied to the
-                              occlusion map.
     """
     with th.no_grad():
         height, width = opposite_view_disparity.size()
@@ -75,13 +73,8 @@ def compute_occlusion_map(opposite_view_disparity, dilation_window_size=3):
         valid_locations = (x >= 0) & (x < width)
         x = x[valid_locations]
         y = y[valid_locations]
-        occlusion_map = np.ones((height, width))
-        occlusion_map[y.cpu().numpy(), x.cpu().numpy()] = 0
-        occlusion_map = th.from_numpy(
-            morphology.binary_dilation(
-                occlusion_map,
-                np.ones((dilation_window_size,
-                         dilation_window_size))).astype(np.uint8))
+        occlusion_map = th.ones((height, width))
+        occlusion_map[y, x] = 0
         if opposite_view_disparity.is_cuda:
             occlusion_map = occlusion_map.cuda()
     return occlusion_map
