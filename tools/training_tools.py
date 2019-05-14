@@ -94,7 +94,7 @@ class Trainer(object):
                                fine-tuning).
         """
         checkpoint = th.load(filename)
-        self._network.load_state_dict(checkpoint['network'])
+        self._networks.load_state_dict(checkpoint['networks'])
         if load_only_network:
             return
         parameters = {
