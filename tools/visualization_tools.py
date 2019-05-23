@@ -132,6 +132,8 @@ def overlay_image_with_binary_error(color_image, binary_error):
     """
     points_coordinates = th.nonzero(binary_error)
     washed_out_image = color_image // 2 + 128
+    if points_coordinates.size(0) == 0:
+        return washed_out_image
     return plot_points_on_background(points_coordinates, washed_out_image)
 
 
