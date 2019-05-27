@@ -15,45 +15,80 @@ def create_meshgrid(width, height, is_cuda):
     return x, y
 
 
-class Warper(nn.Module):
-    def __init__(self):
-        super(Warper, self).__init__()
+def warp_2d(source, y_displacement, x_displacement):
+    """Returns warped source image and occlusion_mask.
 
-    def forward(self, source, x_shift):
-        """Returns warped source image and occlusion_mask.
+    Value in location (x, y) in output image in taken from
+    (x + x_displacement, y + y_displacement) location of the
+    source image.
 
-        In value in (x, y) location in the target image in take from
-        (x - x_shift, y) location in the source image.
+    If the location in the source image is outside of its borders,
+    the location in the target image is filled with zeros and the
+    location is added to the "occlusion_mask".
 
-        If the location in the source image is outside of its borders,
-        the location in the target image is filled with zeros and the
-        location is added to the "occlusion_mask".
+    Args:
+        source: is a tensor with indices
+                [example_index, channel_index, y, x].
+        x_displacement,
+        y_displacement: are tensors with indices [example_index,
+                        1, y, x].
 
-        Args:
-            source: is a tensor with indices
-                    [example_index, channel_index, y, x].
-            x_shift: is tensor with indices [example_index, 1, y, x].
+    Returns:
+        target: is a tensor with indices
+                [example_index, channel_index, y, x].
+        occlusion_mask: is a tensor with indices [example_index, y, x].
+    """
+    width, height = source.size(-1), source.size(-2)
+    x_target, y_target = create_meshgrid(width, height, source.is_cuda)
+    x_source = x_target + x_displacement.squeeze(1)
+    y_source = y_target + y_displacement.squeeze(1)
+    # Normalize coordinates to [-1,1]
+    occlusion_mask = ((x_source.detach() < 0) | (x_source.detach() >= width) |
+                      (y_source.detach() < 0) | (y_source.detach() >= height))
+    x_source = (2.0 / float(width - 1)) * x_source - 1
+    y_source = (2.0 / float(height - 1)) * y_source - 1
+    x_source = x_source.masked_fill(occlusion_mask, 0)
+    y_source = y_source.masked_fill(occlusion_mask, 0)
+    grid_source = th.stack([x_source, y_source], -1)
+    target = nn.functional.grid_sample(source, grid_source)
+    target.masked_fill_(occlusion_mask.unsqueeze(1).expand_as(target), 0)
+    return target, occlusion_mask
 
-        Returns:
-            target: is a tensor with indices
-                    [example_index, channel_index, y, x].
-            occlusion_mask: is a tensor with indices [example_index, y, x].
-        """
-        if x_shift.size(1) != 1:
-            raise ValueError('"x_shift" should should have second dimension'
-                             'equal to one.')
-        width, height = source.size(-1), source.size(-2)
-        x_target, y_target = create_meshgrid(width, height, source.is_cuda)
-        x_source = x_target - x_shift.squeeze(1)
-        y_source = y_target.unsqueeze(0)
-        # Normalize coordinates to [-1,1]
-        occlusion_mask = (x_source.detach() < 0) | (x_source.detach() >= width)
-        x_source = (2.0 / float(width - 1)) * x_source - 1
-        y_source = (2.0 / float(height - 1)) * y_source - 1
-        grid_source = th.stack([x_source, y_source.expand_as(x_source)], -1)
-        target = nn.functional.grid_sample(source, grid_source)
-        target.masked_fill_(occlusion_mask.unsqueeze(1).expand_as(target), 0)
-        return target, occlusion_mask
+
+def warp_1d(source, disparity):
+    """Returns warped source image and occlusion_mask.
+
+    Value in (x, y) location in the output image is taken from
+    (x - disparity, y) location of the source image.
+
+    If the location in the source image is outside of its borders,
+    the location in the output image is filled with zeros and the
+    location is added to the "occlusion_mask".
+
+    Args:
+        source: is a tensor with indices
+                [example_index, channel_index, y, x].
+        disparity: is tensor with indices [example_index, 1, y, x].
+
+    Returns:
+        target: is a tensor with indices
+                [example_index, channel_index, y, x].
+        occlusion_mask: is a tensor with indices [example_index, y, x].
+    """
+    width, height = source.size(-1), source.size(-2)
+    x_target, y_target = create_meshgrid(width, height, source.is_cuda)
+    x_source = x_target - disparity.squeeze(1)
+    y_source = y_target.unsqueeze(0).expand_as(x_source)
+    # Normalize coordinates to [-1,1]
+    occlusion_mask = (x_source.detach() < 0) | (x_source.detach() >= width)
+    x_source = (2.0 / float(width - 1)) * x_source - 1
+    y_source = (2.0 / float(height - 1)) * y_source - 1
+    x_source = x_source.masked_fill(occlusion_mask, 0)
+    y_source = y_source.masked_fill(occlusion_mask, 0)
+    grid_source = th.stack([x_source, y_source], -1)
+    target = nn.functional.grid_sample(source, grid_source)
+    target.masked_fill_(occlusion_mask.unsqueeze(1).expand_as(target), 0)
+    return target, occlusion_mask
 
 
 def compute_occlusion_mask(opposite_view_disparity):
@@ -127,9 +162,7 @@ def find_locations_with_consistent_disparities(
     the left view disparities. Location where the difference between
     the disparities is < maximumu_allowed_disparity_difference.
     """
-    disparity_warper = Warper()
-    warped_right_disparity = disparity_warper(right_disparity,
-                                              left_disparity)[0]
+    warped_right_disparity = warp_1d(right_disparity, left_disparity)[0]
     difference = (warped_right_disparity - left_disparity).abs()
     return difference <= maximum_allowed_disparity_difference
 
@@ -155,8 +188,7 @@ def find_cycle_consistent_locations(left_disparity,
         texture = th.rand(1, 1, height, width).type_as(left_disparity) * 255.0
     else:
         texture = left_image.mean(dim=1, keepdim=True)
-    stereo_warper = Warper()
-    warped_texture = stereo_warper(texture, -right_disparity)[0]
-    warped2x_texture = stereo_warper(warped_texture, left_disparity)[0]
+    warped_texture = warp_1d(texture, -right_disparity)[0]
+    warped2x_texture = warp_1d(warped_texture, left_disparity)[0]
     difference = (warped2x_texture - texture).abs()
     return difference <= maximum_allowed_intensity_difference
