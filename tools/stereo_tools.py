@@ -5,14 +5,7 @@
 from torch import nn
 import torch as th
 
-
-def create_meshgrid(width, height, is_cuda):
-    x, y = th.meshgrid([th.arange(0, width), th.arange(0, height)])
-    x, y = (x.transpose(0, 1).float(), y.transpose(0, 1).float())
-    if is_cuda:
-        x = x.cuda()
-        y = y.cuda()
-    return x, y
+from tools import general_tools
 
 
 def warp_2d(source, y_displacement, x_displacement):
@@ -39,7 +32,8 @@ def warp_2d(source, y_displacement, x_displacement):
         occlusion_mask: is a tensor with indices [example_index, y, x].
     """
     width, height = source.size(-1), source.size(-2)
-    x_target, y_target = create_meshgrid(width, height, source.is_cuda)
+    x_target, y_target = general_tools.create_meshgrid(width, height,
+                                                       source.is_cuda)
     x_source = x_target + x_displacement.squeeze(1)
     y_source = y_target + y_displacement.squeeze(1)
     # Normalize coordinates to [-1,1]
@@ -76,7 +70,8 @@ def warp_1d(source, disparity):
         occlusion_mask: is a tensor with indices [example_index, y, x].
     """
     width, height = source.size(-1), source.size(-2)
-    x_target, y_target = create_meshgrid(width, height, source.is_cuda)
+    x_target, y_target = general_tools.create_meshgrid(width, height,
+                                                       source.is_cuda)
     x_source = x_target - disparity.squeeze(1)
     y_source = y_target.unsqueeze(0).expand_as(x_source)
     # Normalize coordinates to [-1,1]
@@ -111,8 +106,8 @@ def compute_occlusion_mask(opposite_view_disparity):
             occlusion_mask = th.ones(height, width).byte()
             if opposite_view_disparity.is_cuda:
                 occlusion_mask = occlusion_mask.cuda()
-            (x, y) = create_meshgrid(width, height,
-                                     opposite_view_disparity.is_cuda)
+            (x, y) = general_tools.create_meshgrid(
+                width, height, opposite_view_disparity.is_cuda)
             x = (x - opposite_view_disparity[example_index].squeeze(0)
                  ).round().long()
             y = y.long()
