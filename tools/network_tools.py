@@ -1,3 +1,8 @@
+# Copyrights. All rights reserved.
+# ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE, Switzerland,
+# Space Center (eSpace), 2018
+# See the LICENSE.TXT file for more details.
+import torch as th
 from torch import nn
 
 
@@ -8,6 +13,22 @@ def is_network_on_cuda(network):
 def set_requires_gradient_for_network(network, is_requires_gradient):
     for parameter in network.parameters():
         parameter.requires_grad = is_requires_gradient
+
+
+class GradientReverse(th.autograd.Function):
+    """Function that reverse gradient flow."""
+
+    @staticmethod
+    def forward(ctx, x):
+        return x
+
+    @staticmethod
+    def backward(ctx, gradient_output):
+        return gradient_output.neg()
+
+
+def gradient_reverse(x):
+    return GradientReverse.apply(x)
 
 
 class AppendOperationToNetwork(nn.Module):

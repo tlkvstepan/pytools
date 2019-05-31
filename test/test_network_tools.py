@@ -4,6 +4,14 @@ import torch as th
 from tools import network_tools
 
 
+def test_gradient_reverse():
+    x = th.rand(1)
+    x.requires_grad = True
+    y = network_tools.gradient_reverse(x)
+    y.backward()
+    assert x.grad.item() == -1
+
+
 def _is_any_parameter_requires_gradient(network):
     for parameter in network.parameters():
         if parameter.requires_grad:
