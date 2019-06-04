@@ -15,6 +15,21 @@ def set_requires_gradient_for_network(network, is_requires_gradient):
         parameter.requires_grad = is_requires_gradient
 
 
+class SaveModuleIO():
+    def __init__(self, module, is_save_module_input=True):
+        self._hook = module.register_forward_hook(self.save_module_io)
+        self._is_save_module_input = is_save_module_input
+
+    def save_module_io(self, module, input, output):
+        if self._is_save_module_input:
+            self._stored_tensor = input
+        else:
+            self._stored_tensor = output
+
+    def close(self):
+        self._hook.remove()
+
+
 class GradientReverse(th.autograd.Function):
     """Function that reverse gradient flow."""
 

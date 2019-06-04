@@ -19,6 +19,14 @@ def _is_any_parameter_requires_gradient(network):
     return False
 
 
+def test_save_module_io():
+    network = nn.Sequential(nn.Linear(3, 10), nn.ReLU(), nn.Linear(10, 1))
+    hook = network_tools.SaveModuleIO(network[0], is_save_module_input=False)
+    network_input = th.Tensor(2, 3)
+    network(network_input)
+    assert hook._stored_tensor.size() == (2, 10)
+
+
 def test_set_requires_gradient_for_network():
     network = nn.Sequential(nn.Linear(1, 10), nn.ReLU(), nn.Linear(10, 1))
     network_tools.set_requires_gradient_for_network(
