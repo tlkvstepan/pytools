@@ -8,6 +8,15 @@ import torch as th
 from tools import general_tools
 
 
+def another_camera_name(camera_name):
+    if camera_name == 'right':
+        return 'left'
+    elif camera_name == 'left':
+        return 'right'
+    else:
+        ValueError('"camera_name" should be left or right.')
+
+
 def warp_2d(source, y_displacement, x_displacement):
     """Returns warped source image and occlusion_mask.
 
