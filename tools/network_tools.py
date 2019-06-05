@@ -16,17 +16,31 @@ def set_requires_gradient_for_network(network, is_requires_gradient):
 
 
 class SaveModuleIO():
-    def __init__(self, module, is_save_module_input=True):
-        self._hook = module.register_forward_hook(self.save_module_io)
-        self._is_save_module_input = is_save_module_input
-
-    def save_module_io(self, module, input, output):
-        if self._is_save_module_input:
-            self._stored_tensor = input
+    """Module for saving output / input of intermediate network's module.
+    
+    It saves all output or inputs of the module, and saves them.
+    The saved tensors can be retrieved by running "get_saved_tensors" 
+    method. They can be cleaned by running "clean_saved_tensors" method.
+    The object can be detached from the module by running "detach" method.
+    """
+    def __init__(self, module, is_save_input=True):
+        self._hook = module.register_forward_hook(self._save_tensor)
+        self._is_save_input = is_save_input
+        self._tensors = []
+        
+    def _save_tensor(self, module, input, output):
+        if self._is_save_input:
+            self._tensors.append(input)
         else:
-            self._stored_tensor = output
-
-    def close(self):
+            self._tensors.append(output)
+    
+    def get_saved_tensors(self):
+        return self._tensors
+    
+    def clean_saved_tensors(self):
+        self._tensors = []
+        
+    def detach(self):
         self._hook.remove()
 
 

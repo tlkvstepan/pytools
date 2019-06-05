@@ -21,10 +21,16 @@ def _is_any_parameter_requires_gradient(network):
 
 def test_save_module_io():
     network = nn.Sequential(nn.Linear(3, 10), nn.ReLU(), nn.Linear(10, 1))
-    hook = network_tools.SaveModuleIO(network[0], is_save_module_input=False)
+    hook = network_tools.SaveModuleIO(network[0], is_save_input=False)
     network_input = th.Tensor(2, 3)
     network(network_input)
-    assert hook._stored_tensor.size() == (2, 10)
+    network(network_input)
+    tensors = hook.get_saved_tensors()
+    assert len(tensors) == 2
+    assert tensors[0].size() == (2, 10)
+    hook.clean_saved_tensors()
+    tensors = hook.get_saved_tensors()
+    assert len(tensors) == 0
 
 
 def test_set_requires_gradient_for_network():
