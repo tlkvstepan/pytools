@@ -204,6 +204,10 @@ class Trainer(object):
         raise NotImplementedError('"_report_training_progress" method should '
                                   'be implemented in a child class.')
 
+    def set_learning_rate(self, learning_rate):
+        for param_group in self._optimizer.param_groups:
+            param_group['lr'] = learning_rate
+
     def _eval(self):
         """Switch to evaluation mode."""
         raise NotImplementedError('"_eval" method should '
