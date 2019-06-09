@@ -157,16 +157,18 @@ class Trainer(object):
         raise NotImplementedError('"_run_network" method should '
                                   'be implemented in a child class.')
 
-    def _compute_gradients_wrt_loss(self, batch):
-        """Computes loss, gradients w.r.t loss and saves loss.
+    def _compute_loss(self, batch):
+        """Returns and saves loss(es).
 
-        The loss should be saved to "loss" item of "batch".
+        The loss should be added to "loss" item.
         """
         raise NotImplementedError('"_compute_loss" method should '
                                   'be implemented in a child class.')
 
     def _compute_error(self, example):
-        """Computes error and adds it to "example" as an "error" item."""
+        """Computes and saves error(s).error
+
+        The error(s) should be added to "error" item."""
         raise NotImplementedError('"_compute_error" method should '
                                   'be implemented in a child class.')
 
@@ -236,9 +238,11 @@ class Trainer(object):
             if network_tools.is_network_on_cuda(self._networks):
                 batch = _move_tensors_to_cuda(batch)
             self._run_network(batch)
-            self._compute_gradients_wrt_loss(batch)
+            loss = self._compute_loss(batch)
+            loss.backward()
             self._optimizer.step()
-            del batch
+            self._current_losses.append(batch['loss'])
+            del batch, loss
             th.cuda.empty_cache()
         return self._average_losses(self._current_losses)
 
