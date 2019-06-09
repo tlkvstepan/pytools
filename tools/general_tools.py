@@ -36,6 +36,19 @@ def create_meshgrid(width, height, is_cuda):
     return x, y
 
 
+def average_list(list_of_values):
+    return th.Tensor(list_of_values).mean().item()
+
+
+def average_list_of_dictionaries(list_of_dictionaries):
+    dictionary_of_lists = \
+        list_of_dictionaries_to_dictionary_of_lists(
+        list_of_dictionaries)
+    return {
+        list_name: average_list(list_of_values)
+        for list_name, list_of_values in dictionary_of_lists.items()
+    }
+
 def list_of_dictionaries_to_dictionary_of_lists(list_of_dictionaries):
     dictionary_of_lists = defaultdict(lambda: [])
     for dictionary in list_of_dictionaries:
