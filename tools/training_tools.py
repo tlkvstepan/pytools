@@ -132,7 +132,7 @@ class Trainer(object):
         for self._current_epoch in range(start_epoch, self._end_epoch):
             self._training_losses.append(self._train_for_epoch())
             self._test_errors.append(self._test()[0])
-            self._report_training_progress()
+            self._report_epoch_results()
             self._learning_rate_scheduler.step()
             self._save_checkpoint()
         self._current_epoch = self._end_epoch
@@ -198,8 +198,8 @@ class Trainer(object):
         raise NotImplementedError('"_average_processing_time" method should '
                                   'be implemented in a child class.')
 
-    def _report_training_progress(self):
-        """Report current training progress after current epoch.
+    def _report_epoch_results(self):
+        """Report progress after epoch.
 
         The report, for example, may include training plot and log update.
         """

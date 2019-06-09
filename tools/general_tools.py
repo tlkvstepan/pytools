@@ -42,12 +42,12 @@ def average_list(list_of_values):
 
 def average_list_of_dictionaries(list_of_dictionaries):
     dictionary_of_lists = \
-        list_of_dictionaries_to_dictionary_of_lists(
-        list_of_dictionaries)
+        list_of_dictionaries_to_dictionary_of_lists(list_of_dictionaries)
     return {
         list_name: average_list(list_of_values)
         for list_name, list_of_values in dictionary_of_lists.items()
     }
+
 
 def list_of_dictionaries_to_dictionary_of_lists(list_of_dictionaries):
     dictionary_of_lists = defaultdict(lambda: [])
