@@ -210,19 +210,19 @@ class Trainer(object):
         for param_group in self._optimizer.param_groups:
             param_group['lr'] = learning_rate
 
-    def _eval(self):
+    def _set_eval_mode(self):
         """Switch to evaluation mode."""
-        raise NotImplementedError('"_eval" method should '
+        raise NotImplementedError('"set_eval_mode" method should '
                                   'be implemented in a child class.')
 
-    def _train(self):
+    def _set_train_mode(self):
         """Switch to training mode."""
-        raise NotImplementedError('"_train" method should '
+        raise NotImplementedError('"set_train_mode" method should '
                                   'be implemented in a child class.')
 
     def _train_for_epoch(self):
         """Returns training set losses."""
-        self._train()
+        self._set_train_mode()
         self._current_losses = []
         number_of_batches = min(
             len(self._training_set_loader), self._number_of_examples_per_epoch)
@@ -248,7 +248,7 @@ class Trainer(object):
 
     def _test(self):
         """Returns test set errors."""
-        self._eval()
+        self._set_eval_mode()
         self._current_errors = []
         self._current_processing_times = []
         number_of_examples = len(self._test_set_loader)
