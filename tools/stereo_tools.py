@@ -150,7 +150,7 @@ def compute_right_disparity_score(left_disparity_score, disparity_step=2):
     maximum_disparity_index = left_disparity_score.size(1)
     right_disparity_score[:, 0, ...] = left_disparity_score[:, 0, ...]
     for disparity_index in range(1, maximum_disparity_index):
-        disparity = disparity_index * 2
+        disparity = disparity_index * disparity_step
         right_disparity_score[:, disparity_index, :, 0:-disparity] = \
             left_disparity_score[:, disparity_index, :, disparity:]
     return right_disparity_score
