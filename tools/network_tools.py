@@ -45,20 +45,30 @@ class SaveModuleIO():
         self._hook.remove()
 
 
-class GradientReverse(th.autograd.Function):
+class MultiplyGradientFunction(th.autograd.Function):
     """Function that reverse gradient flow."""
 
     @staticmethod
-    def forward(ctx, x):
-        return x
+    def forward(ctx, input, gradient_multiplier):
+        ctx._gradient_multiplier = gradient_multiplier
+        return input
 
     @staticmethod
     def backward(ctx, gradient_output):
-        return gradient_output.neg()
+        return ctx._gradient_multiplier * gradient_output, None
 
 
-def gradient_reverse(x):
-    return GradientReverse.apply(x)
+def multiply_gradient(input, gradient_multiplier):
+    return MultiplyGradientFunction.apply(input, gradient_multiplier)
+
+
+class MultiplyGradient(nn.Module):
+    def __init__(self, gradient_multiplier):
+        super(MultiplyGradient, self).__init__()
+        self._gradient_multiplier = gradient_multiplier
+
+    def forward(self, input):
+        return multiply_gradient(input, self._gradient_multiplier)
 
 
 class AppendOperationToNetwork(nn.Module):

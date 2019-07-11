@@ -8,10 +8,10 @@ import torch as th
 from tools import network_tools
 
 
-def test_gradient_reverse():
+def test_multiply_gradient():
     x = th.rand(1)
     x.requires_grad = True
-    y = network_tools.gradient_reverse(x)
+    y = network_tools.MultiplyGradient(-1.0)(x)
     y.backward()
     assert x.grad.item() == -1
 
