@@ -34,6 +34,7 @@ def test_warp_1d_output():
     source = th.rand(2, 3, 14, 17)
     disparity = th.rand(2, 1, 14, 17)
     target, invalid = stereo_tools.warp_1d(source, disparity)
+    assert invalid.size() == (2, 1, 14, 17)
     assert target.size() == source.size()
 
 

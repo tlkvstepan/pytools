@@ -91,7 +91,8 @@ def warp_1d(source, disparity):
     y_source = y_source.masked_fill(occlusion_mask, 0)
     grid_source = th.stack([x_source, y_source], -1)
     target = nn.functional.grid_sample(source, grid_source)
-    target.masked_fill_(occlusion_mask.unsqueeze(1).expand_as(target), 0)
+    occlusion_mask = occlusion_mask.unsqueeze(1)
+    target.masked_fill_(occlusion_mask.expand_as(target), 0)
     return target, occlusion_mask
 
 
