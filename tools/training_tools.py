@@ -226,6 +226,7 @@ class Trainer(object):
         self._current_losses = []
         number_of_batches = min(
             len(self._training_set_loader), self._number_of_examples_per_epoch)
+        self._optimizer.zero_grad()
         for batch_index, batch in enumerate(self._training_set_loader):
             if batch_index >= number_of_batches:
                 break
@@ -234,13 +235,17 @@ class Trainer(object):
                                  'training: {2:05d} ({3:05d})'.format(
                                      self._current_epoch + 1, self._end_epoch,
                                      batch_index + 1, number_of_batches))
-            self._optimizer.zero_grad()
             if network_tools.is_network_on_cuda(self._networks):
                 batch = _move_tensors_to_cuda(batch)
             self._run_network(batch)
             loss = self._compute_loss(batch)
             loss.backward()
-            self._optimizer.step()
+            if batch_index % self._optimization_frequency == 0:
+                # Accumulate gradinents for several iterations.
+                # This can be usefull if we use several losses in
+                # different iterations.
+                self._optimizer.step()
+                self._optimizer.zero_grad()
             self._current_losses.append(batch['loss'])
             del batch, loss
             th.cuda.empty_cache()
