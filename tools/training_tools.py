@@ -224,8 +224,7 @@ class Trainer(object):
         """Returns training set losses."""
         self._set_train_mode()
         self._current_losses = []
-        number_of_batches = min(
-            len(self._training_set_loader), self._number_of_examples_per_epoch)
+        number_of_batches = self._number_of_examples_per_epoch
         for batch_index, batch in enumerate(self._training_set_loader):
             if batch_index >= number_of_batches:
                 break
